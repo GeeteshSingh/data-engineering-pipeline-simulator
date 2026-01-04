@@ -1,11 +1,9 @@
 import streamlit as st
 import pandas as pd
 import requests
-import boto3
 from datetime import datetime
 import io
 import re
-from botocore.exceptions import ClientError
 
 # Page config
 st.set_page_config(
@@ -15,32 +13,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ENHANCED CSS WITH BETTER UI
+# Custom CSS for better UI
 st.markdown("""
 <style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-    
-    body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: linear-gradient(135deg, #0f1419 0%, #1a1f27 100%);
-        color: #e4e6eb;
-    }
-    
-    .main {
-        background: transparent;
-    }
-    
-    /* Header Styles */
-    .header-container {
-        background: linear-gradient(135deg, rgba(50, 184, 198, 0.1) 0%, rgba(14, 165, 233, 0.1) 100%);
-        border-bottom: 2px solid rgba(50, 184, 198, 0.2);
-        padding: 32px 24px;
-        margin: -16px -16px 24px -16px;
-        border-radius: 0 0 16px 16px;
+    :root {
+        --color-primary: #32b8c6;
+        --color-bg: #0f1419;
+        --color-surface: #1a1f27;
+        --color-text: #e4e6eb;
+        --color-text-secondary: #8892a0;
+        --color-success: #10b981;
+        --color-warning: #f59e0b;
+        --color-error: #ef4444;
+        --color-info: #3b82f6;
     }
     
     .header-title {
@@ -48,121 +33,34 @@ st.markdown("""
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        font-size: 2.8rem;
-        font-weight: 700;
-        margin-bottom: 8px;
-        letter-spacing: -0.5px;
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
     }
     
-    .header-subtitle {
-        color: #8892a0;
-        font-size: 14px;
-        font-weight: 500;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-    }
-    
-    /* Card Styles */
-    .card {
-        background: linear-gradient(135deg, rgba(26, 31, 39, 0.8) 0%, rgba(31, 36, 46, 0.8) 100%);
-        border: 1px solid rgba(50, 184, 198, 0.15);
-        border-radius: 12px;
-        padding: 24px;
-        margin-bottom: 20px;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    
-    .card:hover {
-        border-color: rgba(50, 184, 198, 0.3);
-        box-shadow: 0 12px 48px rgba(50, 184, 198, 0.1);
-        transform: translateY(-2px);
-    }
-    
-    .card-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #32b8c6;
-        margin-bottom: 16px;
+    .progress-steps {
         display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    
-    /* Input Styles */
-    .stFileUploader > label {
-        color: #32b8c6 !important;
-        font-weight: 600;
-    }
-    
-    .stTextInput input, .stTextArea textarea, .stSelectbox select {
-        background: rgba(0, 0, 0, 0.3) !important;
-        border: 1px solid rgba(50, 184, 198, 0.2) !important;
-        border-radius: 8px !important;
-        color: #e4e6eb !important;
-        font-family: 'Courier New', monospace !important;
-        padding: 12px 16px !important;
-        transition: all 0.3s !important;
-    }
-    
-    .stTextInput input:focus, .stTextArea textarea:focus {
-        border-color: #32b8c6 !important;
-        box-shadow: 0 0 0 3px rgba(50, 184, 198, 0.2) !important;
-    }
-    
-    /* Button Styles */
-    .stButton button {
-        background: linear-gradient(135deg, #32b8c6, #0ea5e9) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        padding: 12px 24px !important;
-        transition: all 0.3s !important;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        font-size: 13px;
-        cursor: pointer;
-    }
-    
-    .stButton button:hover {
-        background: linear-gradient(135deg, #2aa4b8, #0d8ed4) !important;
-        box-shadow: 0 8px 24px rgba(50, 184, 198, 0.3) !important;
-        transform: translateY(-2px);
-    }
-    
-    .stButton button:active {
-        transform: translateY(0);
-    }
-    
-    /* Progress Steps */
-    .step-container {
-        display: flex;
+        justify-content: space-between;
+        margin: 20px 0;
         gap: 12px;
-        margin: 24px 0;
-        flex-wrap: wrap;
     }
     
     .step {
         flex: 1;
-        min-width: 120px;
-        padding: 16px;
-        border-radius: 10px;
+        padding: 12px;
         text-align: center;
+        border-radius: 8px;
         font-size: 12px;
         font-weight: 600;
         border: 2px solid rgba(50, 184, 198, 0.2);
         background: rgba(50, 184, 198, 0.05);
-        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        letter-spacing: 0.3px;
+        transition: all 0.3s;
     }
     
     .step.active {
-        background: rgba(50, 184, 198, 0.25);
+        background: rgba(50, 184, 198, 0.3);
         border-color: #32b8c6;
-        box-shadow: 0 0 20px rgba(50, 184, 198, 0.4);
-        transform: scale(1.05);
+        box-shadow: 0 0 10px rgba(50, 184, 198, 0.3);
     }
     
     .step.completed {
@@ -171,192 +69,100 @@ st.markdown("""
         color: #10b981;
     }
     
-    /* Console Styles */
     .console-container {
-        background: rgba(0, 0, 0, 0.6);
+        background: rgba(0, 0, 0, 0.5);
         border: 1px solid rgba(50, 184, 198, 0.2);
-        border-radius: 10px;
-        padding: 20px;
-        max-height: 450px;
+        border-radius: 8px;
+        padding: 16px;
+        max-height: 400px;
         overflow-y: auto;
-        font-family: 'JetBrains Mono', 'Courier New', monospace;
+        font-family: 'Courier New', monospace;
         font-size: 12px;
-        line-height: 1.8;
-        letter-spacing: 0.3px;
-        scrollbar-width: thin;
-        scrollbar-color: rgba(50, 184, 198, 0.3) transparent;
-    }
-    
-    .console-container::-webkit-scrollbar {
-        width: 6px;
-    }
-    
-    .console-container::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    
-    .console-container::-webkit-scrollbar-thumb {
-        background: rgba(50, 184, 198, 0.3);
-        border-radius: 3px;
-    }
-    
-    .console-container::-webkit-scrollbar-thumb:hover {
-        background: rgba(50, 184, 198, 0.5);
+        line-height: 1.6;
     }
     
     .log-entry {
-        margin-bottom: 10px;
-        padding: 6px 10px;
+        margin-bottom: 8px;
+        padding: 4px 8px;
         border-radius: 4px;
-        font-weight: 500;
     }
     
-    .log-info { color: #3b82f6; }
-    .log-success { color: #10b981; }
-    .log-error { color: #ef4444; }
-    .log-warning { color: #f59e0b; }
+    .log-info {
+        color: #3b82f6;
+    }
     
-    /* Stat Cards */
+    .log-success {
+        color: #10b981;
+    }
+    
+    .log-error {
+        color: #ef4444;
+    }
+    
+    .log-warning {
+        color: #f59e0b;
+    }
+    
     .stat-card {
-        background: linear-gradient(135deg, rgba(50, 184, 198, 0.1) 0%, rgba(50, 184, 198, 0.05) 100%);
+        background: rgba(50, 184, 198, 0.05);
         border: 1px solid rgba(50, 184, 198, 0.2);
-        border-radius: 12px;
-        padding: 20px;
+        border-radius: 8px;
+        padding: 16px;
         text-align: center;
-        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: all 0.3s;
     }
     
     .stat-card:hover {
         border-color: #32b8c6;
-        background: linear-gradient(135deg, rgba(50, 184, 198, 0.15) 0%, rgba(50, 184, 198, 0.08) 100%);
-        box-shadow: 0 8px 32px rgba(50, 184, 198, 0.15);
-        transform: translateY(-4px);
+        box-shadow: 0 0 12px rgba(50, 184, 198, 0.2);
     }
     
     .stat-value {
-        font-size: 32px;
-        font-weight: 700;
+        font-size: 28px;
+        font-weight: bold;
         color: #32b8c6;
-        margin-bottom: 8px;
-        font-family: 'Courier New', monospace;
+        margin-bottom: 4px;
     }
     
     .stat-label {
-        font-size: 11px;
+        font-size: 12px;
         color: #8892a0;
         text-transform: uppercase;
-        letter-spacing: 1px;
-        font-weight: 600;
+        letter-spacing: 0.5px;
     }
     
-    /* Flow Diagram */
+    .architecture-box {
+        background: rgba(50, 184, 198, 0.08);
+        border: 1px solid rgba(50, 184, 198, 0.2);
+        border-radius: 8px;
+        padding: 12px;
+        margin: 8px 0;
+        font-size: 12px;
+    }
+    
     .flow-diagram {
         display: flex;
         align-items: center;
-        gap: 16px;
-        margin: 24px 0;
+        gap: 12px;
+        margin: 20px 0;
         flex-wrap: wrap;
         justify-content: center;
     }
     
     .flow-item {
-        background: linear-gradient(135deg, rgba(50, 184, 198, 0.15) 0%, rgba(50, 184, 198, 0.08) 100%);
+        background: rgba(50, 184, 198, 0.1);
         border: 1px solid rgba(50, 184, 198, 0.3);
-        border-radius: 10px;
-        padding: 14px 18px;
+        border-radius: 8px;
+        padding: 12px 16px;
         font-size: 12px;
-        font-weight: 600;
+        font-weight: 500;
         text-align: center;
-        min-width: 90px;
-        transition: all 0.3s;
-    }
-    
-    .flow-item:hover {
-        border-color: #32b8c6;
-        background: linear-gradient(135deg, rgba(50, 184, 198, 0.25) 0%, rgba(50, 184, 198, 0.15) 100%);
-        transform: scale(1.05);
+        min-width: 80px;
     }
     
     .arrow {
-        font-size: 24px;
+        font-size: 20px;
         color: #32b8c6;
-        font-weight: bold;
-    }
-    
-    /* Tab Styles */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 12px;
-        border-bottom: 2px solid rgba(50, 184, 198, 0.1) !important;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background: rgba(50, 184, 198, 0.05);
-        border: 1px solid rgba(50, 184, 198, 0.1);
-        border-radius: 8px 8px 0 0;
-        padding: 12px 24px !important;
-        font-weight: 600;
-        color: #8892a0;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, rgba(50, 184, 198, 0.2) 0%, rgba(50, 184, 198, 0.1) 100%);
-        border-color: #32b8c6;
-        color: #32b8c6 !important;
-    }
-    
-    /* Divider */
-    hr {
-        border: none;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(50, 184, 198, 0.2), transparent);
-        margin: 32px 0;
-    }
-    
-    /* Success/Error Messages */
-    .stSuccess {
-        background: rgba(16, 185, 129, 0.1) !important;
-        border: 1px solid rgba(16, 185, 129, 0.3) !important;
-        border-radius: 8px !important;
-    }
-    
-    .stError {
-        background: rgba(239, 68, 68, 0.1) !important;
-        border: 1px solid rgba(239, 68, 68, 0.3) !important;
-        border-radius: 8px !important;
-    }
-    
-    .stInfo {
-        background: rgba(50, 184, 198, 0.1) !important;
-        border: 1px solid rgba(50, 184, 198, 0.3) !important;
-        border-radius: 8px !important;
-    }
-    
-    /* Data Source Selector */
-    .source-selector {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 12px;
-        margin: 16px 0;
-    }
-    
-    .source-option {
-        padding: 16px;
-        border: 2px solid rgba(50, 184, 198, 0.2);
-        border-radius: 10px;
-        cursor: pointer;
-        transition: all 0.3s;
-        text-align: center;
-        font-weight: 600;
-    }
-    
-    .source-option:hover {
-        border-color: #32b8c6;
-        background: rgba(50, 184, 198, 0.1);
-    }
-    
-    .source-option.active {
-        background: rgba(50, 184, 198, 0.2);
-        border-color: #32b8c6;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -372,8 +178,6 @@ if 'current_step' not in st.session_state:
     st.session_state.current_step = 0
 if 'custom_stages' not in st.session_state:
     st.session_state.custom_stages = []
-if 'source_type' not in st.session_state:
-    st.session_state.source_type = "CSV File"
 
 # Helper functions
 def add_log(message: str, level: str = "INFO"):
@@ -386,7 +190,7 @@ def add_log(message: str, level: str = "INFO"):
     })
 
 def update_step(step_num: int):
-    """Update current processing step"""
+    """Update current processing step (1-4)"""
     st.session_state.current_step = step_num
 
 def parse_csv_proper(file_content: str) -> list:
@@ -539,99 +343,19 @@ def fetch_from_url(url: str) -> tuple:
     except Exception as e:
         return f"Error fetching URL: {str(e)}", False
 
-def fetch_from_s3(s3_uri: str, aws_key: str = None, aws_secret: str = None) -> tuple:
-    """Fetch CSV from S3 bucket
-    URI format: s3://bucket-name/path/to/file.csv
-    """
-    try:
-        # Parse S3 URI
-        if not s3_uri.startswith('s3://'):
-            return "Invalid S3 URI. Use format: s3://bucket-name/path/file.csv", False
-        
-        s3_path = s3_uri.replace('s3://', '')
-        bucket_name = s3_path.split('/')[0]
-        key = '/'.join(s3_path.split('/')[1:])
-        
-        # Create S3 client
-        if aws_key and aws_secret:
-            s3_client = boto3.client(
-                's3',
-                aws_access_key_id=aws_key,
-                aws_secret_access_key=aws_secret
-            )
-        else:
-            s3_client = boto3.client('s3')
-        
-        # Get object
-        response = s3_client.get_object(Bucket=bucket_name, Key=key)
-        file_content = response['Body'].read().decode('utf-8', errors='ignore')
-        
-        return file_content, True
-    except ClientError as e:
-        if e.response['Error']['Code'] == 'NoSuchKey':
-            return "File not found in S3 bucket", False
-        elif e.response['Error']['Code'] == 'AccessDenied':
-            return "Access denied. Check your AWS credentials", False
-        else:
-            return f"S3 Error: {str(e)}", False
-    except Exception as e:
-        return f"Error fetching from S3: {str(e)}", False
-
-def fetch_from_azure(azure_uri: str, connection_string: str = None) -> tuple:
-    """Fetch CSV from Azure Blob Storage
-    URI format: https://account.blob.core.windows.net/container/file.csv
-    """
-    try:
-        response = requests.get(azure_uri, timeout=10)
-        if response.status_code == 200:
-            return response.text, True
-        else:
-            return f"Error: HTTP {response.status_code}", False
-    except Exception as e:
-        return f"Error fetching from Azure: {str(e)}", False
-
-def fetch_from_gcs(gcs_uri: str) -> tuple:
-    """Fetch CSV from Google Cloud Storage
-    URI format: gs://bucket-name/path/to/file.csv
-    For public buckets only
-    """
-    try:
-        # Convert gs:// to https://
-        gcs_path = gcs_uri.replace('gs://', '')
-        bucket_name = gcs_path.split('/')[0]
-        key = '/'.join(gcs_path.split('/')[1:])
-        
-        url = f"https://storage.googleapis.com/{bucket_name}/{key}"
-        response = requests.get(url, timeout=10)
-        
-        if response.status_code == 200:
-            return response.text, True
-        else:
-            return f"Error: HTTP {response.status_code}. Check bucket permissions.", False
-    except Exception as e:
-        return f"Error fetching from GCS: {str(e)}", False
-
 # HEADER
-st.markdown("""
-<div class="header-container">
-    <div class="header-title">🚀 The Transparent Pipeline</div>
-    <div class="header-subtitle">Data Engineering Simulator | Cloud Storage + Live Analytics</div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown('<div class="header-title">🚀 The Transparent Pipeline</div>', unsafe_allow_html=True)
+st.markdown("*Data Engineering Simulator | Real CSV Processing + Architecture Diagrams*")
+st.markdown("---")
 
 # MAIN LAYOUT
 col1, col2 = st.columns(2, gap="large")
 
 # LEFT: Data Source
 with col1:
-    st.markdown('<div class="card-title">📤 Data Source</div>', unsafe_allow_html=True)
+    st.subheader("📤 Data Source")
     
-    source_type = st.radio(
-        "Select data source:",
-        ["CSV File", "S3 URI", "Azure Blob", "Google Cloud", "Public URL"],
-        horizontal=True,
-        key="source_radio"
-    )
+    source_type = st.radio("Select data source:", ["CSV File", "Public URL"], horizontal=True)
     
     file_content = None
     filename = None
@@ -641,54 +365,8 @@ with col1:
         if uploaded_file:
             filename = uploaded_file.name
             file_content = uploaded_file.read().decode('utf-8', errors='ignore')
-    
-    elif source_type == "S3 URI":
-        st.markdown("**S3 Storage Path**")
-        s3_uri = st.text_input("S3 URI", placeholder="s3://bucket-name/path/file.csv")
-        
-        with st.expander("🔑 AWS Credentials (Optional)"):
-            col_key, col_secret = st.columns(2)
-            with col_key:
-                aws_key = st.text_input("AWS Access Key", type="password", placeholder="Leave blank for default credentials")
-            with col_secret:
-                aws_secret = st.text_input("AWS Secret Key", type="password", placeholder="Leave blank for default credentials")
-        
-        if s3_uri:
-            with st.spinner("Fetching from S3..."):
-                file_content, success = fetch_from_s3(s3_uri, aws_key or None, aws_secret or None)
-                filename = s3_uri.split('/')[-1]
-                if not success:
-                    st.error(file_content)
-                    file_content = None
-    
-    elif source_type == "Azure Blob":
-        st.markdown("**Azure Blob Storage**")
-        azure_uri = st.text_input("Azure URI", placeholder="https://account.blob.core.windows.net/container/file.csv")
-        
-        if azure_uri:
-            with st.spinner("Fetching from Azure..."):
-                file_content, success = fetch_from_azure(azure_uri)
-                filename = azure_uri.split('/')[-1]
-                if not success:
-                    st.error(file_content)
-                    file_content = None
-    
-    elif source_type == "Google Cloud":
-        st.markdown("**Google Cloud Storage (Public)**")
-        gcs_uri = st.text_input("GCS URI", placeholder="gs://bucket-name/path/file.csv")
-        
-        if gcs_uri:
-            with st.spinner("Fetching from GCS..."):
-                file_content, success = fetch_from_gcs(gcs_uri)
-                filename = gcs_uri.split('/')[-1]
-                if not success:
-                    st.error(file_content)
-                    file_content = None
-    
-    else:  # Public URL
-        st.markdown("**Public CSV URL**")
-        url = st.text_input("URL", placeholder="https://raw.githubusercontent.com/user/repo/main/data.csv")
-        
+    else:
+        url = st.text_input("Public CSV URL", placeholder="https://example.com/data.csv")
         if url:
             with st.spinner("Fetching file..."):
                 file_content, success = fetch_from_url(url)
@@ -699,7 +377,7 @@ with col1:
 
 # RIGHT: Live Console
 with col2:
-    st.markdown('<div class="card-title">📡 Live Console</div>', unsafe_allow_html=True)
+    st.subheader("📡 Live Console")
     
     console_html = '<div class="console-container">'
     
@@ -721,28 +399,27 @@ with col2:
     st.markdown(console_html, unsafe_allow_html=True)
 
 # PROGRESS STEPS
-st.markdown("<hr>", unsafe_allow_html=True)
-st.markdown('<div class="card-title">⚙️ Processing Status</div>', unsafe_allow_html=True)
+st.markdown("---")
+st.subheader("⚙️ Processing Status")
 
 step_names = ["1. Connecting", "2. Validating", "3. Producing", "4. Completed"]
-step_html = '<div class="step-container">'
+progress_cols = st.columns(4, gap="small")
 
-for i, name in enumerate(step_names):
-    if i < st.session_state.current_step:
-        step_class = "step completed"
-        label = f"✓ {name}"
-    elif i == st.session_state.current_step and st.session_state.current_step > 0:
-        step_class = "step active"
-        label = f"◆ {name}"
-    else:
-        step_class = "step"
-        label = name
-    
-    step_html += f'<div class="{step_class}">{label}</div>'
+for i, (col, name) in enumerate(zip(progress_cols, step_names)):
+    with col:
+        if i < st.session_state.current_step:
+            step_class = "step completed"
+            label = f"✓ {name}"
+        elif i == st.session_state.current_step and st.session_state.current_step > 0:
+            step_class = "step active"
+            label = f"◆ {name}"
+        else:
+            step_class = "step"
+            label = name
+        
+        st.markdown(f'<div class="{step_class}">{label}</div>', unsafe_allow_html=True)
 
-step_html += '</div>'
-st.markdown(step_html, unsafe_allow_html=True)
-
+# Progress bar
 if st.session_state.current_step > 0:
     progress_pct = (st.session_state.current_step / 4) * 100
     st.progress(progress_pct / 100)
@@ -765,7 +442,7 @@ with col_button:
             add_log("Endpoint: kafka-broker-1.upstash.io:9092", "INFO")
             st.rerun()
         else:
-            st.error("❌ Please provide a data source (file, URL, or cloud storage)")
+            st.error("❌ Please upload a CSV file or provide a URL")
 
 with col_status:
     if st.session_state.stats:
@@ -828,8 +505,8 @@ elif st.session_state.pipeline_running and st.session_state.current_step == 3:
 
 # DATA STATISTICS
 if st.session_state.stats and st.session_state.stats.get('status') == 'success':
-    st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown('<div class="card-title">📊 Data Statistics</div>', unsafe_allow_html=True)
+    st.markdown("---")
+    st.subheader("📊 Data Statistics")
     
     stats = st.session_state.stats
     
@@ -869,8 +546,8 @@ if st.session_state.stats and st.session_state.stats.get('status') == 'success':
 
 # ARCHITECTURE & ANALYSIS TABS
 if st.session_state.stats and st.session_state.stats.get('status') == 'success':
-    st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown('<div class="card-title">🏗️ Data Pipeline Architecture</div>', unsafe_allow_html=True)
+    st.markdown("---")
+    st.subheader("🏗️ Data Pipeline Architecture")
     
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Data Flow", "🔍 Pipeline Details", "➕ Extend Pipeline", "📈 Data Analysis"])
     
@@ -885,10 +562,7 @@ if st.session_state.stats and st.session_state.stats.get('status') == 'success':
             st.markdown("""
             **1️⃣ Data Sources**
             - CSV File Upload
-            - AWS S3 Buckets
-            - Azure Blob Storage
-            - Google Cloud Storage
-            - Public Cloud URLs
+            - Public Cloud URLs (S3, Azure, GCS)
             
             **2️⃣ Ingestion Layer (Streamlit)**
             - REST API Client
@@ -918,14 +592,11 @@ if st.session_state.stats and st.session_state.stats.get('status') == 'success':
         with arch_col1:
             st.markdown("""
             #### Layer 1: Data Sources
-            📁 **CSV Upload** - Local file upload (100MB+)
-            ☁️ **S3** - AWS S3 buckets (public/private)
-            ☁️ **Azure** - Azure Blob Storage
-            ☁️ **GCS** - Google Cloud Storage
-            ☁️ **URLs** - Any public HTTP endpoint
+            📁 **CSV Upload** - Local file upload (up to 100MB)
+            ☁️ **S3/Azure URL** - Public cloud storage URLs
             
             #### Layer 2: Ingestion (Streamlit)
-            🌐 **Producer** - Multi-source ingestion
+            🌐 **Streamlit Producer** - REST API client
             ✓ Validation & schema detection
             ✓ Data type inference
             """)
@@ -941,30 +612,30 @@ if st.session_state.stats and st.session_state.stats.get('status') == 'success':
             #### Layer 4: Consumer & Processing
             ⚙️ **Stream Consumer** - Real-time processing
             📊 **Analytics Engine** - Quality & classification
-            📈 **Dashboard** - Live results
             """)
         
-        with st.expander("📝 Cloud Storage Details"):
+        with st.expander("📝 Component Details"):
             st.markdown("""
-            **S3 Buckets**
-            - Public: `s3://bucket-name/path/file.csv`
-            - Private: Requires AWS credentials
-            - Format: `s3://` URI scheme
+            **Source** → CSV File / Public Cloud URL
+            - Auto-detects format
+            - Handles special characters
             
-            **Azure Blob Storage**
-            - Public: `https://account.blob.core.windows.net/container/file.csv`
-            - Private: Requires connection string
-            - Supports SAS tokens
+            **Ingestion** → Streamlit UI
+            - REST API producer
+            - RFC 4180 CSV parsing
             
-            **Google Cloud Storage**
-            - Public: `gs://bucket-name/path/file.csv`
-            - Private: Requires service account
-            - Supports OAuth2
+            **Messaging** → Upstash Kafka
+            - Decoupled architecture
+            - Serverless (no management)
             
-            **Public URLs**
-            - GitHub: Use `raw.githubusercontent.com` for CSV
-            - Dropbox: Add `?dl=1` parameter
-            - Any CDN or web server
+            **Processing** → Consumer
+            - Stream analytics
+            - Quality scoring (0-100)
+            - Dataset classification
+            
+            **Output** → Live Dashboard
+            - Real-time stats
+            - Quality metrics
             """)
     
     # TAB 3: Extend Pipeline
@@ -1022,7 +693,7 @@ if st.session_state.stats and st.session_state.stats.get('status') == 'success':
         
         if stats['insights']:
             st.markdown(f"""
-            <div class="card">
+            <div class="architecture-box">
             <strong>{stats['dataset_type']}</strong><br/>
             {stats['insights']}<br/>
             Completeness: {stats['completeness']}%
@@ -1038,7 +709,7 @@ if st.session_state.stats and st.session_state.stats.get('status') == 'success':
             """)
 
 # RESET BUTTON
-st.markdown("<hr>", unsafe_allow_html=True)
+st.markdown("---")
 if st.button("🔁 New Pipeline", use_container_width=True, type="secondary"):
     st.session_state.logs = []
     st.session_state.stats = None

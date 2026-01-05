@@ -11,8 +11,10 @@ st.set_page_config(
     page_title="The Transparent Pipeline",
     page_icon="🚀",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
+st.link_button("Interactive V2", "https://dataensimulation.netlify.app/")
+
 
 # ENHANCED CSS WITH BETTER UI
 st.markdown("""

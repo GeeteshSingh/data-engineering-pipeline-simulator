@@ -7,7 +7,6 @@ import io
 import re
 from botocore.exceptions import ClientError
 
-# Page config
 st.set_page_config(
     page_title="The Transparent Pipeline",
     page_icon="🚀",
